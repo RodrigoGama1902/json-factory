@@ -1,6 +1,10 @@
 import json
-from dataclasses import dataclass, field
+
 from typing import Any
+
+from exceptions import VariableNotInitializedError, VariableAlreadyInitializedError, RangeSizeNotDefinedError
+from constants import VALID_VARIABLE_CHARS
+from entities import Variable, VariableList
 
 test_task = """{
   "name": "test_job",
@@ -19,56 +23,6 @@ test_task = """{
   ]
 }"""
 
-VALID_VARIABLE_CHARS = set(
-    "abcdefghijklmnopqrstuvwxyz0123456789_"
-)
-
-class VariableNotInitializedError(Exception):
-    """Custom exception for uninitialized variables."""
-
-
-class VariableAlreadyInitializedError(Exception):
-    """Custom exception for already initialized variables."""
-
-
-class RangeSizeNotDefinedError(Exception):
-    """Custom exception for undefined range size."""
-
-
-@dataclass
-class Variable:
-    """Class representing a variable."""
-
-    init: bool
-    name: str
-    range: list[Any] = field(default_factory=list)
-    start_loc: int = 0
-    end_loc: int = 0
-
-
-class VariableList(list):
-    """Custom list class to handle Variable objects."""
-
-    def __contains__(self, item):
-        if isinstance(item, str):
-            return any(var.name == item for var in self)
-        return super().__contains__(item)
-
-    def append(self, item: Variable):
-        # Optional: prevent duplicates by name
-        super().append(item)
-
-    def get_variable_range(self, item: Variable) -> list[Any]:
-        """Get the range of a variable by its name."""
-        for var in self:
-            if var.init and var.name == item.name:
-                return var.range
-
-        raise VariableNotInitializedError(f"Variable '{item.name}' not found.")
-
-    def is_initialized(self, name: str) -> bool:
-        """Check if a variable is initialized."""
-        return any(var.name == name for var in self)
 
 def _get_variable_positions(job_task_str: str) -> list[int]:
     """
@@ -83,7 +37,7 @@ def _get_variable_positions(job_task_str: str) -> list[int]:
     return [i for i, char in enumerate(job_task_str) if char == "$"]
 
 
-def parse_job_task(job_task_str: str) -> list[dict[str, Any]]:
+def process(json_string: str) -> list[dict[str, Any]]:
     """
     Parses a job task string into a dictionary with keys 'job' and 'task'.
 
@@ -108,30 +62,30 @@ def parse_job_task(job_task_str: str) -> list[dict[str, Any]]:
     # =====================
 
     # find all $ and its positions in the job task string
-    variable_positions = _get_variable_positions(job_task_str)
+    variable_positions = _get_variable_positions(json_string)
 
     # Populate the variable list with all variables found in the job task string
     for var_init_pos in variable_positions:
         var_end_pos = var_init_pos
-        for i in range(var_init_pos, len(job_task_str)):
+        for i in range(var_init_pos, len(json_string)):
             if not i == var_init_pos: # ignore first character "$"
-                if not job_task_str[i].lower() in VALID_VARIABLE_CHARS:
+                if not json_string[i].lower() in VALID_VARIABLE_CHARS:
                     break
             var_end_pos += 1
 
-        variable_name = job_task_str[var_init_pos:var_end_pos]
+        variable_name = json_string[var_init_pos:var_end_pos]
 
         # check if is a variable initialization
         # Variable initialization has an expression after the variable name
         # e.g: $current_frame(<0-3>)
-        if job_task_str[var_end_pos] == "(":
+        if json_string[var_end_pos] == "(":
 
             if variable_name in variables:
                 raise VariableAlreadyInitializedError(
                     f"Variable '{variable_name}' was already initialized."
                 )
 
-            variable_expr = job_task_str[var_end_pos + 1 :]
+            variable_expr = json_string[var_end_pos + 1 :]
             if ")" in variable_expr:
                 variable_expr = variable_expr.split(")")[0]
             else:
@@ -191,7 +145,7 @@ def parse_job_task(job_task_str: str) -> list[dict[str, Any]]:
                 )
             )
 
-        print(f"variable_declaration: {variable_name}")
+        #print(f"variable_declaration: {variable_name}")
 
     # now replace the variables in the job task string with their values
     if not declared_range_size:
@@ -202,7 +156,7 @@ def parse_job_task(job_task_str: str) -> list[dict[str, Any]]:
     generated_tasks: list[dict[str, Any]] = []
 
     for i in range(declared_range_size):
-        task_raw = job_task_str
+        task_raw = json_string
         loc_offset = 0
         for variable in variables:
             
@@ -222,8 +176,8 @@ def parse_job_task(job_task_str: str) -> list[dict[str, Any]]:
     return generated_tasks
 
 
-if __name__ == "__main__":
-    job_task = test_task
-    parsed_job_task = parse_job_task(job_task)
+# if __name__ == "__main__":
+#     job_task = test_task
+#     parsed_job_task = parse_job_task(job_task)
     
-    print(parsed_job_task)
+#     print(parsed_job_task)

@@ -1,0 +1,19 @@
+[tool.pyright]
+executionEnvironments = [
+    { root = "tests/", extraPaths = [ "src/" , "tests/helpers/"] },
+    { root = "src/", extraPaths = [ "src/" ] },
+    { root = "src/generators/", extraPaths = [ "src/libs/" ]}
+]
+
+[tool.pytest.ini_options]
+log_cli=false
+log_level="INFO"
+norecursedirs = [
+  "tests/unit/helpers",
+]
+log_format="%(message)s | %(levelname)s"
+pythonpath = [
+  "src/",
+  "tests/unit/",
+  "tests/helpers/"
+]
