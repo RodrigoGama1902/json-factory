@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from json_parser import process
+import json_factory
 
 
 @pytest.fixture
@@ -101,7 +101,7 @@ def test_simple_processing(
     simple_json_string: str, expected_simple_json_result: list[dict[str, Any]]
 ):
     """ "Test the processing of a simple JSON string with variable references."""
-    result = process(simple_json_string)
+    result = json_factory.from_string(simple_json_string)
     assert (
         result == expected_simple_json_result
     ), f"Expected {expected_simple_json_result}, but got {result}"
@@ -112,7 +112,7 @@ def test_standard_processing(
     expected_standard_json_result: list[dict[str, Any]],
 ):
     """Test the processing of a standard JSON string without variable references."""
-    result = process(standard_json_string)
+    result = json_factory.from_string(standard_json_string)
     assert (
         result == expected_standard_json_result
     ), f"Expected {expected_standard_json_result}, but got {result}"

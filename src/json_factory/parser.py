@@ -1,9 +1,9 @@
 import json
 from typing import Any
 
-from constants import VALID_VARIABLE_CHARS
-from entities import Variable, VariableList, VariableReference
-from exceptions import (
+from .constants import VALID_VARIABLE_CHARS
+from .entities import Variable, VariableList, VariableReference
+from .exceptions import (
     RangeSizeNotDefinedError,
     VariableAlreadyInitializedError,
     VariableNotInitializedError,
@@ -39,9 +39,15 @@ def _parse_variable_expression(
     return range_value, None
 
 
-def process(json_string: str) -> list[dict[str, Any]]:
+def from_string(json_string: str) -> list[dict[str, Any]]:
     """Process the json_string with custom syntax and return a list
-    of the generated jsons as python dict."""
+    of the generated jsons as python dict.
+    
+    Args:
+        json_string (str): The JSON string to process.
+    Returns:
+        list[dict[str, Any]]: A list of generated JSON objects as Python dictionaries.
+    """
 
     # =====================
     # Initialization
