@@ -22,17 +22,46 @@ def _parse_variable_expression(
 
     range_value = []
 
+    # Parse "[]" operator
+    # e.g: $current_frame([0,2,5,6]) -> [0, 2, 5, 6]
+    if variable_expr.startswith("[") and variable_expr.endswith("]"):
+        # Extract the range size from the variable expression
+        range_size_str = variable_expr.split("[")[1].split("]")[0]
+        try:
+            range_value = [int(x) for x in range_size_str.split(",")]
+        except ValueError as exc:
+            return [], exc
     # Parse "<>" operator
-    # e.g: $current_frame(<0-3>) -> [0, 1, 2, 3]
+
+    # e.g:
+    # $current_frame(<3>) -> [0, 1, 2, 3]
+    # $current_frame(<0-3>) -> [0, 1, 2, 3]
+    # $current_frame(<0-10>{2}) -> [0, 2, 4, 6, 8, 10] # With step 2
     if variable_expr.startswith("<") and variable_expr.endswith(">"):
         # Extract the range size from the variable expression
         range_size_str = variable_expr.split("<")[1].split(">")[0]
         try:
-            # solve range
-            range_start = int(range_size_str.split("-")[0])
-            range_end = int(range_size_str.split("-")[1])
-            range_value = [int(x) for x in range(range_start, range_end + 1)]
+            # Check if a step is provided (e.g., <0-10>{2})
+            if "{" in range_size_str and "}" in range_size_str:
+                range_part, step_str = range_size_str.split("{")
+                step = int(step_str.strip("}"))
+            else:
+                range_part = range_size_str
+                step = 1  # Default step
 
+            # Check if the range part is a single number (e.g., <3>)
+            if "-" not in range_part:
+                range_start = 0
+                range_end = int(range_part)
+            else:
+                # Extract the start and end for ranges (e.g., <0-3>)
+                range_start = int(range_part.split("-")[0])
+                range_end = int(range_part.split("-")[1])
+
+            # Generate the range with the step
+            range_values = [x for x in range(range_start, range_end + 1, step)]
+
+            return range_values, None
         except ValueError as exc:
             return [], exc
 
@@ -42,7 +71,7 @@ def _parse_variable_expression(
 def from_string(json_string: str) -> list[dict[str, Any]]:
     """Process the json_string with custom syntax and return a list
     of the generated jsons as python dict.
-    
+
     Args:
         json_string (str): The JSON string to process.
     Returns:
@@ -95,7 +124,6 @@ def from_string(json_string: str) -> list[dict[str, Any]]:
                 raise VariableNotInitializedError(
                     f"Variable '{variable_name}' was declared but not initialized."
                 )
-
             range_value, exc = _parse_variable_expression(variable_expr)
             if not range_value and exc:
                 raise VariableNotInitializedError(
@@ -111,7 +139,7 @@ def from_string(json_string: str) -> list[dict[str, Any]]:
                 # if not raise an error
                 if declared_range_size != len(range_value):
                     raise RangeSizeNotDefinedError(
-                        "Range size is not defined. Please check the variable declarations."
+                        f"Variable has a range size({range_value}) that does not match the global range({declared_range_size})."
                     )
 
             var_end_pos += len(variable_expr) + 2  # +2 for the parentheses
