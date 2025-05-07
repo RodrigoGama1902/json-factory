@@ -3,15 +3,41 @@ from typing import Any
 
 from exceptions import VariableNotInitializedError
 
+
+@dataclass
+class VariableReference:
+    """Class representing a variable reference. that is simply an object that holds
+    the reference position in the json string, so it can be replaced with the Variable value.
+    """
+
+    start_loc: int = 0
+    """Start location of the variable reference in the JSON string."""
+    end_loc: int = 0
+    """End location of the variable reference in the JSON string."""
+
+
 @dataclass
 class Variable:
-    """Class representing a variable."""
+    """Stores the variable name, its declaration position, and its range value."""
 
-    init: bool
     name: str
+    declaration: VariableReference
     range: list[Any] = field(default_factory=list)
-    start_loc: int = 0
-    end_loc: int = 0
+    references: list[VariableReference] = field(default_factory=list)
+
+    def __post_init__(self):
+        """Add the declaration to the references list."""
+        self.references.append(self.declaration)
+
+    def get_range_value_from_index(self, index: int) -> Any:
+        """Get the value of the variable at a specific index."""
+        if index < 0 or index >= len(self.range):
+            raise IndexError("Index out of range.")
+        return self.range[index]
+
+    def add_reference(self, reference: VariableReference):
+        """Add a reference to the variable."""
+        self.references.append(reference)
 
 
 class VariableList(list):
@@ -26,14 +52,10 @@ class VariableList(list):
         # Optional: prevent duplicates by name
         super().append(item)
 
-    def get_variable_range(self, item: Variable) -> list[Any]:
-        """Get the range of a variable by its name."""
+    def get_variable(self, name: str) -> Variable:
+        """Get a variable by its name."""
         for var in self:
-            if var.init and var.name == item.name:
-                return var.range
+            if var.name == name:
+                return var
 
-        raise VariableNotInitializedError(f"Variable '{item.name}' not found.")
-
-    def is_initialized(self, name: str) -> bool:
-        """Check if a variable is initialized."""
-        return any(var.name == name for var in self)
+        raise VariableNotInitializedError(f"Variable '{name}' not found.")

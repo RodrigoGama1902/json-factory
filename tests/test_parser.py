@@ -1,10 +1,13 @@
-import pytest
 from typing import Any
 
-from parser import process
+import pytest
+
+from json_parser import process
+
 
 @pytest.fixture
 def simple_json_string() -> str:
+    """A simple JSON string with a variable reference."""
     return """{
   "name": "test_job",
   "tasks": [
@@ -18,58 +21,98 @@ def simple_json_string() -> str:
   ]
 }"""
 
+
 @pytest.fixture
 def expected_simple_json_result() -> list[dict[str, Any]]:
-    
+    """Expected result after processing the simple JSON string."""
     return [
         {
             "name": "test_job",
             "tasks": [
                 {
-                "name": "task1",
-                "plugin_args": {
-                    "frame_start": 9,
-                    "frame_end" : 9
+                    "name": "task1",
+                    "plugin_args": {"frame_start": 9, "frame_end": 9},
                 }
-                }
-            ]
+            ],
         },
         {
             "name": "test_job",
             "tasks": [
                 {
-                "name": "task1",
-                "plugin_args": {
-                    "frame_start": 10,
-                    "frame_end" : 10
+                    "name": "task1",
+                    "plugin_args": {"frame_start": 10, "frame_end": 10},
                 }
-                }
-            ]
+            ],
         },
         {
             "name": "test_job",
             "tasks": [
                 {
-                "name": "task1",
-                "plugin_args": {
-                    "frame_start": 11,
-                    "frame_end" : 11
+                    "name": "task1",
+                    "plugin_args": {"frame_start": 11, "frame_end": 11},
                 }
-                }
-            ]
-        }, 
+            ],
+        },
     ]
-    
 
-def test_simple_processing(simple_json_string : str, expected_simple_json_result : list[dict[str, Any]]):
-    
+
+@pytest.fixture
+def standard_json_string() -> str:
+    """A standard JSON string without variable references."""
+    return """{
+  "name": "test_data",
+  "tasks": [
+    {
+      "name": "task1",
+      "priority": 0,
+      "group": "string",
+      "pool": "string",
+      "plugin_name": "string",
+      "plugin_args": {
+        "frame_start": 1,
+        "frame_end" : 1
+      }
+    }
+  ]
+}"""
+
+
+@pytest.fixture
+def expected_standard_json_result() -> list[dict[str, Any]]:
+    """Expected result after processing the standard JSON string."""
+    return [
+        {
+            "name": "test_data",
+            "tasks": [
+                {
+                    "name": "task1",
+                    "priority": 0,
+                    "group": "string",
+                    "pool": "string",
+                    "plugin_name": "string",
+                    "plugin_args": {"frame_start": 1, "frame_end": 1},
+                }
+            ],
+        }
+    ]
+
+
+def test_simple_processing(
+    simple_json_string: str, expected_simple_json_result: list[dict[str, Any]]
+):
+    """ "Test the processing of a simple JSON string with variable references."""
     result = process(simple_json_string)
-    assert result == expected_simple_json_result, f"Expected {expected_simple_json_result}, but got {result}"
-    
-    
-    
-    
-    
-    
-    
+    assert (
+        result == expected_simple_json_result
+    ), f"Expected {expected_simple_json_result}, but got {result}"
 
+
+def test_standard_processing(
+    standard_json_string: str,
+    expected_standard_json_result: list[dict[str, Any]],
+):
+    """Test the processing of a standard JSON string without variable references."""
+    result = process(standard_json_string)
+    assert (
+        result == expected_standard_json_result
+    ), f"Expected {expected_standard_json_result}, but got {result}"
