@@ -12,7 +12,7 @@ from .exceptions import (
 
 def _replace_variable_with_value(
     json_string: str, start_pos: int, value: Any
-) -> tuple[str, int]:
+) -> str:
     """Replace variable with value and return the offset"""
 
     current_json_string = json_string
@@ -28,7 +28,7 @@ def _replace_variable_with_value(
         if cursor == start_pos and char == "$":
             cursor += 1
             continue
-            
+
         if char in ["(", "["]:
             open_bracket_level += 1
         if char in [")", "]"]:
@@ -37,6 +37,8 @@ def _replace_variable_with_value(
         if char == "," and not open_bracket_level:
             break
 
+        # these characters are not valid char for variable name,
+        # but are valid for variable declaration syntax
         if (
             not char in [".", "(", ")", "[", "]", ",", "<", ">", "{", "}", "-"]
             and not char in VALID_VARIABLE_CHARS
@@ -53,7 +55,7 @@ def _replace_variable_with_value(
         + current_json_string[start_pos:]
     )
 
-    return current_json_string, (start_pos - cursor) + len(str(value))
+    return current_json_string
 
 
 def _get_variable_positions(json_string: str) -> list[int]:
@@ -284,15 +286,15 @@ def from_string(json_string: str) -> list[dict[str, Any]]:
             # current range index
 
             for reference in variable.references:
-                result, offset = _replace_variable_with_value(
+                result = _replace_variable_with_value(
                     generated_json_string,
                     reference.start_loc + loc_offset,
                     variable_value,
                 )
 
-                loc_offset += offset   
+                loc_offset += len(result) - len(generated_json_string)
                 generated_json_string = result
-                
+
         generated_jsons.append(json.loads(generated_json_string))
 
     return generated_jsons
