@@ -1,8 +1,26 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
 
 from .exceptions import VariableNotInitializedError
 
+
+class VariableModifierTypes(Enum):
+    """Enum for variable modifiers."""
+
+    ZFILL = "zfill"
+    """Zero fill modifier."""
+    TO_STRING = "to_string"
+    """Convert to string modifier."""
+    
+@dataclass
+class VariableModifier:
+    """Class representing a variable modifier."""
+
+    #type: VariableModifierTypes
+    """Type of the variable modifier."""
+    name : str = ""
+    args: list[Any] = field(default_factory=list)
 
 @dataclass
 class VariableReference:
@@ -14,7 +32,12 @@ class VariableReference:
     """Start location of the variable reference in the JSON string."""
     end_loc: int = 0
     """End location of the variable reference in the JSON string."""
-
+    modifiers : list[VariableModifier] = field(default_factory=list)
+    """List of modifiers applied to the variable."""
+    
+    def add_modifier(self, modifier: VariableModifier):
+        """Add a modifier to the variable reference."""
+        self.modifiers.append(modifier)
 
 @dataclass
 class Variable:

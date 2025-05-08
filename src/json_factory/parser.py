@@ -2,12 +2,58 @@ import json
 from typing import Any
 
 from .constants import VALID_VARIABLE_CHARS
-from .entities import Variable, VariableList, VariableReference
+from .entities import Variable, VariableList, VariableModifier, VariableReference
 from .exceptions import (
     RangeSizeNotDefinedError,
     VariableAlreadyInitializedError,
     VariableNotInitializedError,
 )
+
+
+def _replace_variable_with_value(
+    json_string: str, start_pos: int, value: Any
+) -> tuple[str, int]:
+    """Replace variable with value and return the offset"""
+
+    current_json_string = json_string
+    cursor = start_pos
+
+    # Some characters are only considered from variable section
+    # if they are inside a bracket, this variable keeps track of it
+    open_bracket_level = 0
+
+    while True:
+        char = json_string[cursor]
+
+        if cursor == start_pos and char == "$":
+            cursor += 1
+            continue
+            
+        if char in ["(", "["]:
+            open_bracket_level += 1
+        if char in [")", "]"]:
+            open_bracket_level -= 1
+
+        if char == "," and not open_bracket_level:
+            break
+
+        if (
+            not char in [".", "(", ")", "[", "]", ",", "<", ">", "{", "}", "-"]
+            and not char in VALID_VARIABLE_CHARS
+        ):
+            break
+        current_json_string = (
+            current_json_string[:start_pos] + json_string[cursor + 1 :]
+        )
+        cursor += 1
+
+    current_json_string = (
+        current_json_string[:start_pos]
+        + str(value)
+        + current_json_string[start_pos:]
+    )
+
+    return current_json_string, (start_pos - cursor) + len(str(value))
 
 
 def _get_variable_positions(json_string: str) -> list[int]:
@@ -31,8 +77,8 @@ def _parse_variable_expression(
             range_value = [int(x) for x in range_size_str.split(",")]
         except ValueError as exc:
             return [], exc
-    # Parse "<>" operator
 
+    # Parse "<>" operator
     # e.g:
     # $current_frame(<3>) -> [0, 1, 2, 3]
     # $current_frame(<0-3>) -> [0, 1, 2, 3]
@@ -106,6 +152,7 @@ def from_string(json_string: str) -> list[dict[str, Any]]:
             var_end_pos += 1
 
         variable_name = json_string[var_init_pos:var_end_pos]
+        variable_reference: None | VariableReference = None
 
         # check if is a variable initialization
         # Variable initialization has an expression after the variable name
@@ -143,11 +190,15 @@ def from_string(json_string: str) -> list[dict[str, Any]]:
                     )
 
             var_end_pos += len(variable_expr) + 2  # +2 for the parentheses
+            variable_reference = VariableReference(
+                var_init_pos, var_end_pos, modifiers=[]
+            )
+
             declared_variables.append(
                 Variable(
                     name=variable_name,
                     range=range_value,
-                    declaration=VariableReference(var_init_pos, var_end_pos),
+                    declaration=variable_reference,
                 )
             )
         else:
@@ -156,9 +207,61 @@ def from_string(json_string: str) -> list[dict[str, Any]]:
                 raise VariableNotInitializedError(
                     f"Variable '{variable_name}' was declared but not initialized."
                 )
-            variable_data.add_reference(
-                VariableReference(var_init_pos, var_end_pos)
-            )
+            variable_reference = VariableReference(var_init_pos, var_end_pos)
+            variable_data.add_reference(variable_reference)
+
+        # Check for variable modifiers recursively
+        # e.g: $current_frame.zfill(3).to_string()
+
+        # if json_string[var_end_pos] == ".":
+        #     # get zfill and the value inside of the parentheses
+        #     modifier = json_string[var_end_pos + 1 :]
+        #     if "(" in modifier and ")" in modifier:
+        #         modifier_name = modifier.split("(")[0]
+        #         modifier_value = modifier.split("(")[1].split(")")[0]
+
+        cursor = var_end_pos
+        modifier_start_pos = var_end_pos
+        found_modifiers: list[VariableModifier] = []
+
+        while True:
+            char = json_string[cursor]
+            if (
+                not char in [".", "(", ")"]
+                and not char in VALID_VARIABLE_CHARS
+            ):
+                break
+
+            if char == ".":
+                # get zfill and the value inside of the parentheses
+                modifier = json_string[modifier_start_pos + 1 :]
+                if "(" in modifier and ")" in modifier:
+                    modifier_name = modifier.split("(")[0]
+                    modifier_value = modifier.split("(")[1].split(")")[0]
+
+                    found_modifiers.append(
+                        VariableModifier(
+                            name=modifier_name,
+                            args=[modifier_value],
+                        )
+                    )
+
+                    cursor += (
+                        len(modifier_name) + len(modifier_value) + 3
+                    )  # +3 for the parentheses and the dot
+                    modifier_start_pos = cursor
+                    continue
+
+            cursor += 1
+
+        # if found_modifiers, remove every modifier from the string until the last valid position
+        # if found_modifiers:
+        #     print(modifier_char_index_to_remove)
+        #     for char in modifier_char_index_to_remove:
+        #         json_string = json_string[:char] + "" + json_string[char + 1:]
+
+        for mod in found_modifiers:
+            variable_reference.add_modifier(mod)
 
     # =====================
     # Generate each json
@@ -171,6 +274,7 @@ def from_string(json_string: str) -> list[dict[str, Any]]:
 
         # After each variable replacement, the string length changes
         # so we need to keep track of the offset to replace the variable correctly
+
         loc_offset = 0
 
         for variable in declared_variables:
@@ -178,19 +282,17 @@ def from_string(json_string: str) -> list[dict[str, Any]]:
 
             # Replace each reference with the variable value for the
             # current range index
+
             for reference in variable.references:
-
-                start_loc = reference.start_loc + loc_offset
-                end_loc = reference.end_loc + loc_offset
-
-                generated_json_string = (
-                    generated_json_string[:start_loc]
-                    + str(variable_value)
-                    + generated_json_string[end_loc:]
+                result, offset = _replace_variable_with_value(
+                    generated_json_string,
+                    reference.start_loc + loc_offset,
+                    variable_value,
                 )
 
-                loc_offset += (start_loc - end_loc) + len(str(variable_value))
-
+                loc_offset += offset   
+                generated_json_string = result
+                
         generated_jsons.append(json.loads(generated_json_string))
 
     return generated_jsons
