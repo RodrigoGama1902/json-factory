@@ -13,7 +13,7 @@ from .exceptions import (
 def _replace_variable_with_value(
     json_string: str, start_pos: int, value: Any
 ) -> str:
-    """Replace variable with value and return the offset"""
+    """Replace variable with value and return the new version of the json_string"""
 
     current_json_string = json_string
     cursor = start_pos
@@ -256,12 +256,6 @@ def from_string(json_string: str) -> list[dict[str, Any]]:
 
             cursor += 1
 
-        # if found_modifiers, remove every modifier from the string until the last valid position
-        # if found_modifiers:
-        #     print(modifier_char_index_to_remove)
-        #     for char in modifier_char_index_to_remove:
-        #         json_string = json_string[:char] + "" + json_string[char + 1:]
-
         for mod in found_modifiers:
             variable_reference.add_modifier(mod)
 
@@ -280,12 +274,15 @@ def from_string(json_string: str) -> list[dict[str, Any]]:
         loc_offset = 0
 
         for variable in declared_variables:
-            variable_value = variable.get_range_value_from_index(i)
+            
 
             # Replace each reference with the variable value for the
             # current range index
 
             for reference in variable.references:
+                
+                variable_value = variable.get_range_value_from_reference(i, reference)
+                
                 result = _replace_variable_with_value(
                     generated_json_string,
                     reference.start_loc + loc_offset,

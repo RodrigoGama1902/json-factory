@@ -1,3 +1,4 @@
+from abc import ABC
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -14,11 +15,8 @@ class VariableModifierTypes(Enum):
     """Convert to string modifier."""
     
 @dataclass
-class VariableModifier:
+class VariableModifier(ABC):
     """Class representing a variable modifier."""
-
-    #type: VariableModifierTypes
-    """Type of the variable modifier."""
     name : str = ""
     args: list[Any] = field(default_factory=list)
 
@@ -51,12 +49,27 @@ class Variable:
     def __post_init__(self):
         """Add the declaration to the references list."""
         self.references.append(self.declaration)
-
-    def get_range_value_from_index(self, index: int) -> Any:
-        """Get the value of the variable at a specific index."""
+        
+    def get_range_value_from_reference(self, index, reference : VariableReference):
+        """Get the value of the variable at a specific 
+        index with all applied modifiers."""
+        
+        # Get value from range by index
         if index < 0 or index >= len(self.range):
             raise IndexError("Index out of range.")
-        return self.range[index]
+        range_value = self.range[index]
+        
+        # TODO: Modifier logic should not be implemented here, only executed
+        # find a way to fix this
+        for mod in reference.modifiers:
+            if mod.name == "zfill":
+                range_value = f'"{str(range_value).zfill(int(mod.args[0]))}"'
+            if mod.name == "to_string":
+                range_value = str(f'"{range_value}"')
+            if mod.name == "to_int":
+                range_value = int(str(range_value).replace('"', '').replace("'", ""))
+                
+        return range_value
 
     def add_reference(self, reference: VariableReference):
         """Add a reference to the variable."""
