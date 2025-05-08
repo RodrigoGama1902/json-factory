@@ -1,20 +1,17 @@
 import sys
+from pprint import pprint
 
 sys.path.append("src")
 
 import json_factory
 
 json_string = """{
-  "name": "test_job",
-  "tasks": [
-    {
-      "name": "task1",
-      "plugin_args": {
-        "frame_start": $current_frame(<0-3>),
-        "frame_end" : $current_frame.zfill(4).to_string()
-      }
-    }
-  ]
+  "name": "test_job_$frame(<0-10>).zfill(5)",
+  "plugin_args" : {
+    "frame_string" : $frame.zfill(5).to_string(),
+    "frame_start" : $frame,
+    "frame_end" : $frame
+  }
 }"""
 
-print(json_factory.from_string(json_string))
+pprint(json_factory.from_string(json_string))

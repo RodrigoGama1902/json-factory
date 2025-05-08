@@ -63,7 +63,7 @@ class Variable:
         # find a way to fix this
         for mod in reference.modifiers:
             if mod.name == "zfill":
-                range_value = f'"{str(range_value).zfill(int(mod.args[0]))}"'
+                range_value = str(range_value).zfill(int(mod.args[0]))
             if mod.name == "to_string":
                 range_value = str(f'"{range_value}"')
             if mod.name == "to_int":
