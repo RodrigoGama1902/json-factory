@@ -2,8 +2,6 @@
 
 **json-factory** is a Python package that enables the dynamic creation of multiple JSON objects from a custom syntax. It interprets special markers within JSON strings and expands them to generate data combinations according to defined rules.
 
-Currently, the `<min-max>` operator is supported, allowing you to expand a value within a numeric range.
-
 ## ✨ Features
 
 With **json-factory**, you can:
@@ -83,9 +81,27 @@ pip install .
 
 Currently, the following elements are supported:
 
-* **Range placeholder**:
-  `$variable_name(<min-max>)`
+* **Range Operator**:
+  * `$variable_name(<value>)`
+  Generates multiple instances with values starting from 0 to the specified value.
+  * `$variable_name(<min-max>)`
   Generates multiple instances with values in the specified range.
+  * `$variable_name(<min-max>{step})`
+  Generates multiple instances with values in the specified range, incrementing by the step value.
+
+* **List Operator**:
+  `$variable_name([value1, value2, ...])`
+  Generates multiple instances with the specified values.
+
+* **Variable Modifiers**:
+  * `$variable_name.zfill(x)`
+  Appends leading zeros to the value, ensuring it has a total length of `x` characters.
+  * `$variable_name.to_string()`
+  Converts the value to a string.
+  * `$variable_name.to_int()`
+  Converts the value to an integer.
+
+  NOTE: These modifiers can be chained together, e.g., `$variable_name.zfill(3).to_string()`.
 
 * **Variable reference**:
   `$variable_name`
