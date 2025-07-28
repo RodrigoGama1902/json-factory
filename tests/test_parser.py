@@ -5,10 +5,15 @@ from json_factory.parser import _replace_variable_with_value, from_string
 
 def test_replace_variable_with_value():
     
-    string_value = "1xe $teste.teste([0,1,2]).test([],,,), , 2xe"
-    expected_result = "1xe '2', , 2xe"
+    string_value = "1xe $teste.teste([0,1,2]).test([],,,).png. , 2xe"
+    expected_result = "1xe '2'.png. , 2xe"
     
-    result = _replace_variable_with_value(string_value, 4, "'2'")
+    result = _replace_variable_with_value(
+        string_value,
+        4, 
+        "'2'",
+        total_declaration_char_size=33
+        )
 
     assert result == expected_result
     

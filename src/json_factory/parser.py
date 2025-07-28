@@ -2,7 +2,13 @@ import json
 from typing import Any
 
 from .constants import VALID_VARIABLE_CHARS
-from .entities import Variable, VariableList, VariableModifier, VariableReference
+from .entities import (
+    Variable,
+    VariableList,
+    VariableModifier,
+    VariableModifierTypes,
+    VariableReference,
+)
 from .exceptions import (
     RangeSizeNotDefinedError,
     VariableAlreadyInitializedError,
@@ -11,51 +17,25 @@ from .exceptions import (
 
 
 def _replace_variable_with_value(
-    json_string: str, start_pos: int, value: Any
+    json_string: str,
+    start_pos: int,
+    value: Any,
+    total_declaration_char_size: int,
 ) -> str:
-    """Replace variable with value and return the new version of the json_string"""
+    """Replace variable with value and return the new version of the json_string
 
-    current_json_string = json_string
-    cursor = start_pos
-
-    # Some characters are only considered from variable section
-    # if they are inside a bracket, this variable keeps track of it
-    open_bracket_level = 0
-
-    while True:
-        char = json_string[cursor]
-
-        if cursor == start_pos and char == "$":
-            cursor += 1
-            continue
-
-        if char in ["(", "["]:
-            open_bracket_level += 1
-        if char in [")", "]"]:
-            open_bracket_level -= 1
-
-        if char == "," and not open_bracket_level:
-            break
-
-        # these characters are not valid char for variable name,
-        # but are valid for variable declaration syntax
-        if (
-            not char in [".", "(", ")", "[", "]", ",", "<", ">", "{", "}", "-"]
-            and not char in VALID_VARIABLE_CHARS
-        ):
-            break
-        current_json_string = (
-            current_json_string[:start_pos] + json_string[cursor + 1 :]
-        )
-        cursor += 1
-
-    current_json_string = (
-        current_json_string[:start_pos]
+    Args:
+        json_string (str): The JSON string to process.
+        start_pos (int): The position in the JSON string where the variable starts.
+        value (Any): The value to replace the variable with.
+        total_declaration_char_size (int): The total character size of
+            the variable declaration, including modifier chars.
+    """
+    return (
+        json_string[:start_pos]
         + str(value)
-        + current_json_string[start_pos:]
+        + json_string[start_pos + total_declaration_char_size :]
     )
-
-    return current_json_string
 
 
 def _get_variable_positions(json_string: str) -> list[int]:
@@ -215,13 +195,6 @@ def from_string(json_string: str) -> list[dict[str, Any]]:
         # Check for variable modifiers recursively
         # e.g: $current_frame.zfill(3).to_string()
 
-        # if json_string[var_end_pos] == ".":
-        #     # get zfill and the value inside of the parentheses
-        #     modifier = json_string[var_end_pos + 1 :]
-        #     if "(" in modifier and ")" in modifier:
-        #         modifier_name = modifier.split("(")[0]
-        #         modifier_value = modifier.split("(")[1].split(")")[0]
-
         cursor = var_end_pos
         modifier_start_pos = var_end_pos
         found_modifiers: list[VariableModifier] = []
@@ -238,19 +211,35 @@ def from_string(json_string: str) -> list[dict[str, Any]]:
                 # get zfill and the value inside of the parentheses
                 modifier = json_string[modifier_start_pos + 1 :]
                 if "(" in modifier and ")" in modifier:
+
                     modifier_name = modifier.split("(")[0]
+                    modifier_type = VariableModifierTypes.get_type_from_name(
+                        modifier_name
+                    )
+
+                    if not modifier_type:
+                        cursor += 1
+                        modifier_start_pos = cursor
+                        continue
+
                     modifier_value = modifier.split("(")[1].split(")")[0]
+
+                    # +3 for the parentheses and the dot
+                    # e.g: ".zfill(3)"
+                    modifier_char_size = (
+                        len(modifier_name) + len(modifier_value) + 3
+                    )
 
                     found_modifiers.append(
                         VariableModifier(
                             name=modifier_name,
+                            type=modifier_type,
+                            char_size=modifier_char_size,
                             args=[modifier_value],
                         )
                     )
 
-                    cursor += (
-                        len(modifier_name) + len(modifier_value) + 3
-                    )  # +3 for the parentheses and the dot
+                    cursor += modifier_char_size
                     modifier_start_pos = cursor
                     continue
 
@@ -274,25 +263,28 @@ def from_string(json_string: str) -> list[dict[str, Any]]:
         loc_offset = 0
 
         for variable in declared_variables:
-            
 
             # Replace each reference with the variable value for the
             # current range index
 
             for reference in variable.references:
-                
-                variable_value = variable.get_range_value_from_reference(i, reference)
-                
+
+                variable_value = variable.get_range_value_from_reference(
+                    i, reference
+                )
+
                 result = _replace_variable_with_value(
                     generated_json_string,
                     reference.start_loc + loc_offset,
                     variable_value,
+                    reference.get_total_declaration_char_size(),
                 )
 
                 loc_offset += len(result) - len(generated_json_string)
                 generated_json_string = result
-                
+
         # write to file
+        print(generated_json_string)
         try:
             generated_jsons.append(json.loads(generated_json_string))
         except json.JSONDecodeError as exc:

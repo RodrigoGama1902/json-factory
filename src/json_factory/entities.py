@@ -13,11 +13,23 @@ class VariableModifierTypes(Enum):
     """Zero fill modifier."""
     TO_STRING = "to_string"
     """Convert to string modifier."""
+    TO_INT = "to_int"
+    """Convert to integer modifier."""
+    
+    @classmethod
+    def get_type_from_name(cls, name: str) -> "VariableModifierTypes | None":
+        """Get the modifier type from its name."""
+        try:
+            return cls[name.upper()]
+        except KeyError:
+            return None
     
 @dataclass
 class VariableModifier(ABC):
     """Class representing a variable modifier."""
-    name : str = ""
+    name : str
+    type : VariableModifierTypes
+    char_size : int
     args: list[Any] = field(default_factory=list)
 
 @dataclass
@@ -36,6 +48,13 @@ class VariableReference:
     def add_modifier(self, modifier: VariableModifier):
         """Add a modifier to the variable reference."""
         self.modifiers.append(modifier)
+        
+    def get_total_declaration_char_size(self) -> int:
+        """Calculate the total character size of the variable declaration."""
+        total_size = self.end_loc - self.start_loc
+        for mod in self.modifiers:
+            total_size += mod.char_size
+        return total_size
 
 @dataclass
 class Variable:
