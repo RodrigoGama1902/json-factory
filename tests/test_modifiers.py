@@ -8,7 +8,7 @@ def test_to_string_modifier():
         "param1" : $var1(<2>).to_string(),
         "param2" : $var1,
         "param3" : $var2(<5-7>),
-        "param4" : $var2.zfill(3),
+        "param4" : $var2.zfill(3).to_string(),
         "param5" : $var2,
         "param6" : $var2.zfill(3).to_int()
     }"""

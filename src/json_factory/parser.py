@@ -291,7 +291,14 @@ def from_string(json_string: str) -> list[dict[str, Any]]:
 
                 loc_offset += len(result) - len(generated_json_string)
                 generated_json_string = result
-
-        generated_jsons.append(json.loads(generated_json_string))
+                
+        # write to file
+        try:
+            generated_jsons.append(json.loads(generated_json_string))
+        except json.JSONDecodeError as exc:
+            print(generated_json_string)
+            raise ValueError(
+                f"Generated JSON for index {i} is not valid: {exc}"
+            ) from exc
 
     return generated_jsons
